@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soil Sensor Monitor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, sans-serif; background: #1a1a2e; color: #eee; padding: 20px; }
+        h1 { text-align: center; margin-bottom: 20px; color: #4ecca3; }
+        .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .card { background: #16213e; border-radius: 12px; padding: 20px; text-align: center; }
+        .card .label { font-size: 0.85rem; color: #aaa; margin-bottom: 5px; }
+        .card .value { font-size: 2rem; font-weight: bold; color: #4ecca3; }
+        .card .unit { font-size: 0.9rem; color: #888; }
+        .chart-container { background: #16213e; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+        .status { text-align: center; font-size: 0.8rem; color: #666; margin-top: 10px; }
+        .status.online { color: #4ecca3; }
+    </style>
+</head>
+<body>
+    <h1>🌱 Tuproq Sensor Monitor</h1>
+    <div class="cards">
+        <div class="card"><div class="label">Namlik</div><div class="value" id="moisture">--</div><div class="unit">%</div></div>
+        <div class="card"><div class="label">Harorat</div><div class="value" id="temperature">--</div><div class="unit">°C</div></div>
+        <div class="card"><div class="label">EC</div><div class="value" id="ec">--</div><div class="unit">µs/cm</div></div>
+        <div class="card"><div class="label">pH</div><div class="value" id="ph">--</div><div class="unit"></div></div>
+        <div class="card"><div class="label">Azot (N)</div><div class="value" id="nitrogen">--</div><div class="unit">mg/kg</div></div>
+        <div class="card"><div class="label">Fosfor (P)</div><div class="value" id="phosphorus">--</div><div class="unit">mg/kg</div></div>
+        <div class="card"><div class="label">Kaliy (K)</div><div class="value" id="potassium">--</div><div class="unit">mg/kg</div></div>
+    </div>
+    <div class="chart-container"><canvas id="chart"></canvas></div>
+    <div class="status" id="status">Ulanmoqda...</div>
+
+    <script>
+        const chart = new Chart(document.getElementById('chart'), {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    { label: 'Namlik %', data: [], borderColor: '#4ecca3', tension: 0.3 },
+                    { label: 'Harorat °C', data: [], borderColor: '#e94560', tension: 0.3 },
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: { x: { display: true, ticks: { color: '#888' } }, y: { ticks: { color: '#888' } } },
+                plugins: { legend: { labels: { color: '#ccc' } } }
+            }
+        });
+
+        async function update() {
+            try {
+                const res = await fetch('/api/latest');
+                const d = await res.json();
+                if (d.moisture !== undefined) {
+                    document.getElementById('moisture').textContent = d.moisture.toFixed(1);
+                    document.getElementById('temperature').textContent = d.temperature.toFixed(1);
+                    document.getElementById('ec').textContent = d.ec;
+                    document.getElementById('ph').textContent = d.ph.toFixed(1);
+                    document.getElementById('nitrogen').textContent = d.nitrogen;
+                    document.getElementById('phosphorus').textContent = d.phosphorus;
+                    document.getElementById('potassium').textContent = d.potassium;
+
+                    const time = new Date(d.timestamp).toLocaleTimeString();
+                    chart.data.labels.push(time);
+                    chart.data.datasets[0].data.push(d.moisture);
+                    chart.data.datasets[1].data.push(d.temperature);
+                    if (chart.data.labels.length > 50) {
+                        chart.data.labels.shift();
+                        chart.data.datasets.forEach(ds => ds.data.shift());
+                    }
+                    chart.update();
+                    document.getElementById('status').textContent = 'Oxirgi yangilanish: ' + time;
+                    document.getElementById('status').className = 'status online';
+                }
+            } catch (e) {
+                document.getElementById('status').textContent = 'Xatolik: ' + e.message;
+                document.getElementById('status').className = 'status';
+            }
+        }
+
+        // Dastlab tarixni yuklash
+        fetch('/api/history?limit=50').then(r => r.json()).then(rows => {
+            rows.reverse().forEach(d => {
+                chart.data.labels.push(new Date(d.timestamp).toLocaleTimeString());
+                chart.data.datasets[0].data.push(d.moisture);
+                chart.data.datasets[1].data.push(d.temperature);
+            });
+            chart.update();
+        });
+
+        update();
+        setInterval(update, 5000);
+    </script>
+</body>
+</html>
