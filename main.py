@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 DB_PATH = "soil_data.db"
-SERIAL_PORT = "/dev/cu.usbserial-110"
+SERIAL_PORT = "/dev/cu.usbserial-10"
 BAUD_RATE = 9600
 READ_INTERVAL = 5  # sekundda bir o'qish
 
